@@ -20,7 +20,7 @@ jobs:
         with: { name: MeuTreino-apk, path: MeuTreino.apk }
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0-build${{ github.run_number }}
+          tag_name: v2.0-build${{ github.run_number }}
           name: Meu Treino ${{ github.run_number }}
           files: MeuTreino.apk
           target_commitish: ${{ github.sha }}
