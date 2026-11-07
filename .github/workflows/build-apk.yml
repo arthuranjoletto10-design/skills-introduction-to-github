@@ -20,7 +20,7 @@ jobs:
         with: { name: PizzariaBellaMassa-apk, path: pizzaria-app/build/PizzariaBellaMassa.apk }
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: pizzaria-v1.1.${{ github.run_number }}
-          name: Bella Massa v1.1.${{ github.run_number }}
+          tag_name: pizzaria-v1.2.${{ github.run_number }}
+          name: Bella Massa v1.2.${{ github.run_number }}
           body: "Cardápio digital da Pizzaria Bella Massa. Baixe o arquivo PizzariaBellaMassa.apk abaixo e instale no Android (5.0+)."
           files: pizzaria-app/build/PizzariaBellaMassa.apk

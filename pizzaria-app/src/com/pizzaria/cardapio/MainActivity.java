@@ -12,7 +12,9 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.FrameLayout;
+import android.content.SharedPreferences;
+import android.text.InputType;
+import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -457,7 +459,7 @@ public class MainActivity extends Activity {
 
         TextView confirm = pill("FINALIZAR PEDIDO", INK, IVORY, true);
         confirm.setGravity(Gravity.CENTER);
-        confirm.setOnClickListener(v -> { d.dismiss(); finishOrder(); });
+        confirm.setOnClickListener(v -> { d.dismiss(); checkout(); });
         p.addView(confirm, new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout links = new LinearLayout(this);
@@ -476,12 +478,157 @@ public class MainActivity extends Activity {
         d.show();
     }
 
-    void finishOrder() {
+    static final String[] PAYMENTS = {"Pix", "Cartão de crédito", "Cartão de débito", "Dinheiro", "Vale-refeição"};
+    static final String[] PAYMENT_INFO = {"Chave enviada na confirmação", "Maquininha na entrega", "Maquininha na entrega", "Informe se precisa de troco", "Sodexo, Alelo, VR e Ticket"};
+
+    EditText field(LinearLayout parent, String label, String hint, String value, int type) {
+        TextView l = text(label, 10, MUTED, SANS_MEDIUM);
+        l.setLetterSpacing(0.2f);
+        l.setPadding(0, dp(10), 0, dp(4));
+        parent.addView(l);
+        EditText e = new EditText(this);
+        e.setHint(hint);
+        e.setText(value);
+        e.setTextSize(15);
+        e.setTextColor(INK);
+        e.setHintTextColor(Color.parseColor("#B5ADA3"));
+        e.setTypeface(SANS);
+        e.setInputType(type);
+        e.setSingleLine(true);
+        e.setPadding(dp(14), dp(12), dp(14), dp(12));
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(PAPER);
+        g.setStroke(dp(1), LINE);
+        g.setCornerRadius(dp(4));
+        e.setBackground(g);
+        parent.addView(e, new LinearLayout.LayoutParams(-1, -2));
+        return e;
+    }
+
+    TextView section(String s) {
+        TextView t = text(s, 18, INK, SERIF);
+        t.setPadding(0, dp(18), 0, 0);
+        return t;
+    }
+
+    void checkout() {
+        final SharedPreferences prefs = getSharedPreferences("cliente", MODE_PRIVATE);
+        LinearLayout p = panel();
+        TextView over = text("FINALIZAR PEDIDO", 11, GOLD, SANS_MEDIUM);
+        over.setLetterSpacing(0.25f);
+        p.addView(over);
+        TextView title = text("Entrega e pagamento", 24, INK, SERIF);
+        title.setPadding(0, dp(4), 0, dp(4));
+        p.addView(title);
+
+        ScrollView sv = new ScrollView(this);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        sv.addView(box);
+        p.addView(sv, new LinearLayout.LayoutParams(-1, (int) (getResources().getDisplayMetrics().heightPixels * 0.55)));
+
+        int text = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS;
+        box.addView(section("Seus dados"));
+        final EditText name = field(box, "NOME COMPLETO", "Como devemos chamar você?", prefs.getString("nome", ""), text | InputType.TYPE_TEXT_VARIATION_PERSON_NAME);
+        final EditText phone = field(box, "TELEFONE", "(11) 99999-9999", prefs.getString("telefone", ""), InputType.TYPE_CLASS_PHONE);
+
+        box.addView(section("Endereço de entrega"));
+        final EditText street = field(box, "RUA E NÚMERO", "Ex.: Rua Augusta, 1500", prefs.getString("rua", ""), text | InputType.TYPE_TEXT_VARIATION_POSTAL_ADDRESS);
+        final EditText hood = field(box, "BAIRRO", "Ex.: Consolação", prefs.getString("bairro", ""), text);
+        final EditText comp = field(box, "COMPLEMENTO (OPCIONAL)", "Apto, bloco, ponto de referência", prefs.getString("complemento", ""), text);
+
+        box.addView(section("Forma de pagamento"));
+        final int[] chosen = {prefs.getInt("pagamento", 0)};
+        final List<LinearLayout> opts = new ArrayList<>();
+        final List<View> dots = new ArrayList<>();
+        final LinearLayout changeBox = new LinearLayout(this);
+        changeBox.setOrientation(LinearLayout.VERTICAL);
+        final Runnable[] refresh = new Runnable[1];
+        for (int i = 0; i < PAYMENTS.length; i++) {
+            final int idx = i;
+            LinearLayout opt = new LinearLayout(this);
+            opt.setGravity(Gravity.CENTER_VERTICAL);
+            opt.setPadding(dp(14), dp(12), dp(14), dp(12));
+            View dot = new View(this);
+            opt.addView(dot, new LinearLayout.LayoutParams(dp(16), dp(16)));
+            LinearLayout col = new LinearLayout(this);
+            col.setOrientation(LinearLayout.VERTICAL);
+            col.setPadding(dp(14), 0, 0, 0);
+            col.addView(text(PAYMENTS[i], 16, INK, SERIF));
+            col.addView(text(PAYMENT_INFO[i], 12, MUTED, SANS));
+            opt.addView(col, new LinearLayout.LayoutParams(0, -2, 1));
+            LinearLayout.LayoutParams ol = new LinearLayout.LayoutParams(-1, -2);
+            ol.setMargins(0, dp(8), 0, 0);
+            box.addView(opt, ol);
+            opt.setOnClickListener(v -> { chosen[0] = idx; refresh[0].run(); });
+            opts.add(opt);
+            dots.add(dot);
+        }
+        box.addView(changeBox);
+        final EditText change = field(changeBox, "TROCO PARA (OPCIONAL)", "Ex.: R$ 100,00", "", InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        refresh[0] = () -> {
+            for (int i = 0; i < opts.size(); i++) {
+                boolean on = i == chosen[0];
+                GradientDrawable g = new GradientDrawable();
+                g.setColor(on ? Color.parseColor("#FBF6EC") : PAPER);
+                g.setStroke(dp(1), on ? GOLD : LINE);
+                g.setCornerRadius(dp(4));
+                opts.get(i).setBackground(g);
+                GradientDrawable dg = new GradientDrawable();
+                dg.setShape(GradientDrawable.OVAL);
+                dg.setStroke(dp(on ? 5 : 1), on ? WINE : MUTED);
+                dg.setColor(PAPER);
+                dots.get(i).setBackground(dg);
+            }
+            changeBox.setVisibility(PAYMENTS[chosen[0]].equals("Dinheiro") ? View.VISIBLE : View.GONE);
+        };
+        refresh[0].run();
+
+        LinearLayout totRow = new LinearLayout(this);
+        totRow.setGravity(Gravity.CENTER_VERTICAL);
+        totRow.setPadding(0, dp(14), 0, dp(14));
+        totRow.addView(text("Total", 18, INK, SERIF), new LinearLayout.LayoutParams(0, -2, 1));
+        totRow.addView(text(brl.format(total()), 22, WINE, SERIF));
+        p.addView(totRow);
+
+        Dialog d = sheet(p);
+        TextView confirm = pill("CONFIRMAR PEDIDO", INK, IVORY, true);
+        confirm.setGravity(Gravity.CENTER);
+        confirm.setOnClickListener(v -> {
+            String n = name.getText().toString().trim(), ph = phone.getText().toString().trim();
+            String st = street.getText().toString().trim(), hd = hood.getText().toString().trim();
+            String cp = comp.getText().toString().trim();
+            if (n.isEmpty()) { name.setError("Informe seu nome"); name.requestFocus(); return; }
+            if (ph.length() < 8) { phone.setError("Informe um telefone válido"); phone.requestFocus(); return; }
+            if (st.isEmpty()) { street.setError("Informe rua e número"); street.requestFocus(); return; }
+            if (hd.isEmpty()) { hood.setError("Informe o bairro"); hood.requestFocus(); return; }
+            prefs.edit().putString("nome", n).putString("telefone", ph).putString("rua", st)
+                 .putString("bairro", hd).putString("complemento", cp).putInt("pagamento", chosen[0]).apply();
+            String pay = PAYMENTS[chosen[0]];
+            String ch = change.getText().toString().trim();
+            if (pay.equals("Dinheiro") && !ch.isEmpty()) pay += " (troco para R$ " + ch + ")";
+            String addr = st + " — " + hd + (cp.isEmpty() ? "" : " (" + cp + ")");
+            d.dismiss();
+            finishOrder(n, ph, addr, pay);
+        });
+        p.addView(confirm, new LinearLayout.LayoutParams(-1, -2));
+        TextView back = text("VOLTAR AO PEDIDO", 12, MUTED, SANS_MEDIUM);
+        back.setLetterSpacing(0.2f);
+        back.setGravity(Gravity.CENTER);
+        back.setPadding(0, dp(14), 0, dp(4));
+        back.setOnClickListener(v -> { d.dismiss(); showCart(); });
+        p.addView(back);
+        d.show();
+    }
+
+    void finishOrder(String clientName, String phone, String address, String payment) {
         StringBuilder sb = new StringBuilder("Pedido · Bella Massa Pizzeria\n\n");
         for (Map.Entry<String, Integer> e : cart.entrySet())
             sb.append(e.getValue()).append("x ").append(e.getKey()).append(" — ")
               .append(brl.format(e.getValue() * cartPrice.get(e.getKey()))).append("\n");
         sb.append("\nTotal: ").append(brl.format(total()));
+        sb.append("\n\nCliente: ").append(clientName).append("\nTelefone: ").append(phone)
+          .append("\nEndereço: ").append(address).append("\nPagamento: ").append(payment);
         final String msg = sb.toString();
 
         LinearLayout p = panel();
@@ -492,7 +639,7 @@ public class MainActivity extends Activity {
         TextView t = text("Grazie mille", 26, INK, SERIF_ITALIC);
         t.setPadding(0, dp(6), 0, dp(6));
         p.addView(t);
-        TextView body = text("Seu pedido de " + brl.format(total()) + " foi registrado. Envie-o para a pizzaria pelo aplicativo de sua preferência.", 14, MUTED, SANS);
+        TextView body = text(clientName + ", seu pedido de " + brl.format(total()) + " será entregue em " + address + ".\nPagamento: " + payment + ".\n\nEnvie-o para a pizzaria pelo aplicativo de sua preferência.", 14, MUTED, SANS);
         body.setGravity(Gravity.CENTER);
         body.setPadding(0, 0, 0, dp(18));
         p.addView(body);
