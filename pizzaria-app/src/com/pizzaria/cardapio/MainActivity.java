@@ -21,6 +21,10 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -28,24 +32,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public class MainActivity extends Activity {
+public class MainActivity extends BaseActivity {
 
     // Palette
-    static final int INK = Color.parseColor("#151312");
-    static final int CHARCOAL = Color.parseColor("#2A2624");
-    static final int IVORY = Color.parseColor("#FAF7F2");
-    static final int PAPER = Color.WHITE;
-    static final int GOLD = Color.parseColor("#B08D57");
-    static final int GOLD_SOFT = Color.parseColor("#E9DFCC");
-    static final int WINE = Color.parseColor("#7A1F2B");
-    static final int MUTED = Color.parseColor("#7B736B");
-    static final int LINE = Color.parseColor("#E7E1D8");
-
-    static final Typeface SERIF = Typeface.create("serif", Typeface.NORMAL);
-    static final Typeface SERIF_BOLD = Typeface.create("serif", Typeface.BOLD);
-    static final Typeface SERIF_ITALIC = Typeface.create("serif", Typeface.ITALIC);
-    static final Typeface SANS = Typeface.create("sans-serif", Typeface.NORMAL);
-    static final Typeface SANS_MEDIUM = Typeface.create("sans-serif-medium", Typeface.NORMAL);
 
     static class Item {
         final String name, desc, tag; final double price; final boolean pizza;
@@ -63,6 +52,8 @@ public class MainActivity extends Activity {
 
     static final String[] SIZES = {"Broto", "Média", "Grande"};
     static final String[] SIZE_INFO = {"4 fatias · 25 cm", "6 fatias · 30 cm", "8 fatias · 35 cm"};
+    static final int[] SLICES = {4, 6, 8};
+    static final int[] SIZE_CM = {25, 30, 35};
     static final double[] SIZE_MULT = {0.7, 0.85, 1.0};
 
     final List<Category> menu = new ArrayList<>();
@@ -253,6 +244,12 @@ public class MainActivity extends Activity {
             list.addView(note);
         }
         for (int i = 0; i < c.items.size(); i++) list.addView(row(c.items.get(i), i < c.items.size() - 1));
+        TextView staff = text("ÁREA DA PIZZARIA", 10, Color.parseColor("#B5ADA3"), SANS_MEDIUM);
+        staff.setLetterSpacing(0.25f);
+        staff.setGravity(Gravity.CENTER);
+        staff.setPadding(0, dp(36), 0, dp(8));
+        staff.setOnClickListener(v -> askPin());
+        list.addView(staff, new LinearLayout.LayoutParams(-1, -2));
         scroll.scrollTo(0, 0);
     }
 
@@ -305,29 +302,6 @@ public class MainActivity extends Activity {
     }
 
     // ---------- Dialogs ----------
-
-    Dialog sheet(View content) {
-        Dialog d = new Dialog(this);
-        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
-        d.setContentView(content);
-        Window w = d.getWindow();
-        if (w != null) {
-            w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            w.setLayout((int) (getResources().getDisplayMetrics().widthPixels * 0.9), -2);
-        }
-        return d;
-    }
-
-    LinearLayout panel() {
-        LinearLayout p = new LinearLayout(this);
-        p.setOrientation(LinearLayout.VERTICAL);
-        p.setPadding(dp(24), dp(24), dp(24), dp(20));
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(IVORY);
-        g.setCornerRadius(dp(6));
-        p.setBackground(g);
-        return p;
-    }
 
     void onAdd(Item item) {
         if (!item.pizza) { addToCart(item.name, item.price); return; }
@@ -481,36 +455,6 @@ public class MainActivity extends Activity {
     static final String[] PAYMENTS = {"Pix", "Cartão de crédito", "Cartão de débito", "Dinheiro", "Vale-refeição"};
     static final String[] PAYMENT_INFO = {"Chave enviada na confirmação", "Maquininha na entrega", "Maquininha na entrega", "Informe se precisa de troco", "Sodexo, Alelo, VR e Ticket"};
 
-    EditText field(LinearLayout parent, String label, String hint, String value, int type) {
-        TextView l = text(label, 10, MUTED, SANS_MEDIUM);
-        l.setLetterSpacing(0.2f);
-        l.setPadding(0, dp(10), 0, dp(4));
-        parent.addView(l);
-        EditText e = new EditText(this);
-        e.setHint(hint);
-        e.setText(value);
-        e.setTextSize(15);
-        e.setTextColor(INK);
-        e.setHintTextColor(Color.parseColor("#B5ADA3"));
-        e.setTypeface(SANS);
-        e.setInputType(type);
-        e.setSingleLine(true);
-        e.setPadding(dp(14), dp(12), dp(14), dp(12));
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(PAPER);
-        g.setStroke(dp(1), LINE);
-        g.setCornerRadius(dp(4));
-        e.setBackground(g);
-        parent.addView(e, new LinearLayout.LayoutParams(-1, -2));
-        return e;
-    }
-
-    TextView section(String s) {
-        TextView t = text(s, 18, INK, SERIF);
-        t.setPadding(0, dp(18), 0, 0);
-        return t;
-    }
-
     void checkout() {
         final SharedPreferences prefs = getSharedPreferences("cliente", MODE_PRIVATE);
         LinearLayout p = panel();
@@ -621,6 +565,64 @@ public class MainActivity extends Activity {
         d.show();
     }
 
+    void askPin() {
+        final SharedPreferences prefs = getSharedPreferences("admin", MODE_PRIVATE);
+        LinearLayout p = panel();
+        TextView over = text("ACESSO RESTRITO", 11, GOLD, SANS_MEDIUM);
+        over.setLetterSpacing(0.25f);
+        p.addView(over);
+        TextView t = text("Área da pizzaria", 24, INK, SERIF);
+        t.setPadding(0, dp(4), 0, dp(4));
+        p.addView(t);
+        final EditText pin = field(p, "SENHA", "Senha padrão: 1234", "",
+                InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        Dialog d = sheet(p);
+        TextView ok = pill("ENTRAR", INK, IVORY, true);
+        ok.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.setMargins(0, dp(18), 0, 0);
+        p.addView(ok, lp);
+        ok.setOnClickListener(v -> {
+            if (pin.getText().toString().equals(prefs.getString("pin", "1234"))) {
+                d.dismiss();
+                startActivity(new Intent(this, AdminActivity.class));
+            } else pin.setError("Senha incorreta");
+        });
+        d.show();
+    }
+
+    int saveOrder(String clientName, String phone, String address, String payment) {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("cliente", clientName);
+            o.put("telefone", phone);
+            o.put("endereco", address);
+            o.put("pagamento", payment);
+            o.put("total", round2(total()));
+            JSONArray items = new JSONArray();
+            for (Map.Entry<String, Integer> e : cart.entrySet()) {
+                String key = e.getKey();
+                JSONObject it = new JSONObject();
+                String[] parts = key.split(" · ");
+                it.put("nome", parts[0]);
+                if (parts.length > 1) {
+                    it.put("tipo", "Pizza");
+                    it.put("tamanho", parts[1]);
+                    for (int i = 0; i < SIZES.length; i++) if (SIZES[i].equals(parts[1])) {
+                        it.put("fatias", SLICES[i]);
+                        it.put("diametro", SIZE_CM[i]);
+                    }
+                } else it.put("tipo", "Bebida");
+                it.put("quantidade", e.getValue());
+                it.put("precoUnitario", cartPrice.get(key));
+                it.put("subtotal", round2(e.getValue() * cartPrice.get(key)));
+                items.put(it);
+            }
+            o.put("itens", items);
+        } catch (JSONException ignored) { }
+        return new OrderStore(this).add(o);
+    }
+
     void finishOrder(String clientName, String phone, String address, String payment) {
         StringBuilder sb = new StringBuilder("Pedido · Bella Massa Pizzeria\n\n");
         for (Map.Entry<String, Integer> e : cart.entrySet())
@@ -629,14 +631,16 @@ public class MainActivity extends Activity {
         sb.append("\nTotal: ").append(brl.format(total()));
         sb.append("\n\nCliente: ").append(clientName).append("\nTelefone: ").append(phone)
           .append("\nEndereço: ").append(address).append("\nPagamento: ").append(payment);
-        final String msg = sb.toString();
+        final int number = saveOrder(clientName, phone, address, payment);
+        sb.insert(0, "Pedido nº " + number + " · ");
+        final String msg = sb.toString().replaceFirst("Pedido · ", "");
 
         LinearLayout p = panel();
         p.setGravity(Gravity.CENTER_HORIZONTAL);
         TextView over = text("PEDIDO CONFIRMADO", 11, GOLD, SANS_MEDIUM);
         over.setLetterSpacing(0.25f);
         p.addView(over);
-        TextView t = text("Grazie mille", 26, INK, SERIF_ITALIC);
+        TextView t = text("Pedido nº " + number, 26, INK, SERIF);
         t.setPadding(0, dp(6), 0, dp(6));
         p.addView(t);
         TextView body = text(clientName + ", seu pedido de " + brl.format(total()) + " será entregue em " + address + ".\nPagamento: " + payment + ".\n\nEnvie-o para a pizzaria pelo aplicativo de sua preferência.", 14, MUTED, SANS);
@@ -663,41 +667,4 @@ public class MainActivity extends Activity {
         d.show();
     }
 
-    // ---------- Helpers ----------
-
-    TextView pill(String label, int bg, int fg, boolean filled) {
-        TextView t = text(label, 11, fg, SANS_MEDIUM);
-        t.setLetterSpacing(0.2f);
-        t.setPadding(dp(16), dp(10), dp(16), dp(10));
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(bg);
-        if (!filled) g.setStroke(dp(1), INK);
-        g.setCornerRadius(dp(2));
-        t.setBackground(g);
-        if (filled) t.setPadding(dp(20), dp(14), dp(20), dp(14));
-        return t;
-    }
-
-    View stepper(String label, View.OnClickListener l) {
-        TextView t = text(label, 16, INK, SANS);
-        t.setGravity(Gravity.CENTER);
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setStroke(dp(1), GOLD);
-        t.setBackground(g);
-        t.setOnClickListener(l);
-        t.setLayoutParams(new LinearLayout.LayoutParams(dp(32), dp(32)));
-        return t;
-    }
-
-    TextView text(String s, int sp, int color, Typeface tf) {
-        TextView t = new TextView(this);
-        t.setText(s);
-        t.setTextSize(sp);
-        t.setTextColor(color);
-        t.setTypeface(tf);
-        return t;
-    }
-
-    int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
 }
