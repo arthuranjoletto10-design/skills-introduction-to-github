@@ -1,0 +1,26 @@
+name: Build Pizzaria APK
+on:
+  push:
+    branches: [claude/pizzaria-digital-menu-app-w66jvw]
+    paths: ["pizzaria-app/**", ".github/workflows/build-apk.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: android-actions/setup-android@v3
+        with: { packages: "platforms;android-34 build-tools;34.0.0" }
+      - run: ./pizzaria-app/build.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: PizzariaBellaMassa-apk, path: pizzaria-app/build/PizzariaBellaMassa.apk }
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pizzaria-v1.0.${{ github.run_number }}
+          name: Pizzaria Bella Massa v1.0.${{ github.run_number }}
+          body: "Cardápio digital da Pizzaria Bella Massa. Baixe o arquivo PizzariaBellaMassa.apk abaixo e instale no Android (5.0+)."
+          files: pizzaria-app/build/PizzariaBellaMassa.apk
