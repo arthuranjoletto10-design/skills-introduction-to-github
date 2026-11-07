@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Meu Treino</title>
+<style>
+:root{--bg:#0f1115;--card:#1a1d24;--txt:#eef0f4;--sub:#9aa1ad;--acc:#ff6b2c;--line:#2a2e37}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Roboto,sans-serif}
+header{position:sticky;top:0;background:var(--bg);padding:14px 16px 10px;border-bottom:1px solid var(--line);z-index:2}
+h1{font-size:20px;margin:0 0 10px;display:flex;align-items:center;gap:10px}
+.back{background:none;border:0;color:var(--acc);font-size:22px;padding:0 4px}
+input,select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);font-size:16px}
+main{padding:12px 16px 90px}
+.item{background:var(--card);border-radius:12px;padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.item small{color:var(--sub);display:block;margin-top:3px}
+.badge{background:var(--acc);color:#fff;border-radius:20px;padding:2px 9px;font-size:13px;white-space:nowrap}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0}
+label{font-size:12px;color:var(--sub)}
+.btn{width:100%;padding:13px;border:0;border-radius:10px;background:var(--acc);color:#fff;font-size:16px;font-weight:600;margin-top:6px}
+.btn.sec{background:var(--card);color:var(--txt);border:1px solid var(--line)}
+.pr{background:linear-gradient(135deg,#ff6b2c33,#1a1d24);border:1px solid #ff6b2c55;border-radius:12px;padding:12px;margin:10px 0}
+.del{background:none;border:0;color:#ff5d5d;font-size:18px}
+.tabs{display:flex;gap:6px;margin-top:10px}.tabs button{flex:1;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--sub)}
+.tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.empty{color:var(--sub);text-align:center;padding:30px 0}
+</style></head><body>
+<header><h1 id="tit"></h1><div id="hdr"></div></header>
+<main id="app"></main>
+<script src="exercicios.js"></script>
+<script>
+const K='meutreino_v1';
+let db; try{db=JSON.parse(localStorage.getItem(K))||{}}catch(e){db={}}
+db.logs=db.logs||{}; db.custom=db.custom||{};
+const save=()=>localStorage.setItem(K,JSON.stringify(db));
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function lista(g){return GRUPOS[g].split('|').concat(db.custom[g]||[])}
+function todos(){let r=[];for(const g in GRUPOS)lista(g).forEach(e=>r.push([g,e]));return r}
+let pilha=[];
+function ir(fn){pilha.push(fn);fn()}
+window.voltar=function(){if(pilha.length>1){pilha.pop();pilha[pilha.length-1]();return true}return false};
+function cab(t,voltar){$('tit').innerHTML=(voltar?'<button class="back" onclick="voltar()">←</button>':'')+esc(t)}
+function itemEx(g,e,mostraGrupo){
+  const L=db.logs[e]||[];const last=L[L.length-1];
+  return `<div class="item" onclick='ir(()=>telaEx(${JSON.stringify(g)},${JSON.stringify(e)}))'>
+  <div>${esc(e)}<small>${mostraGrupo?esc(g)+' · ':''}${last?`Último: ${last.peso}kg · ${last.series}x${last.reps}`:'Sem registros'}</small></div>
+  ${L.length?`<span class="badge">${maxPeso(L)}kg</span>`:''}</div>`}
+const maxPeso=L=>Math.max(...L.map(x=>+x.peso||0));
+let aba='grupos';
+function home(){
+  cab('🏋️ Meu Treino');
+  $('hdr').innerHTML=`<input id="q" placeholder="Buscar entre ${todos().length} exercícios..." oninput="buscar()">
+  <div class="tabs"><button class="${aba=='grupos'?'on':''}" onclick="aba='grupos';home()">Grupos</button>
+  <button class="${aba=='hist'?'on':''}" onclick="aba='hist';home()">Meus registros</button>
+  <button class="${aba=='cfg'?'on':''}" onclick="aba='cfg';home()">Backup</button></div>`;
+  if(aba=='grupos'){$('app').innerHTML=Object.keys(GRUPOS).map(g=>`<div class="item" onclick='ir(()=>telaGrupo(${JSON.stringify(g)}))'><div>${esc(g)}<small>${lista(g).length} exercícios</small></div><span>›</span></div>`).join('')}
+  else if(aba=='hist'){const r=todos().filter(([g,e])=>(db.logs[e]||[]).length);
+    $('app').innerHTML=r.length?r.map(([g,e])=>itemEx(g,e,1)).join(''):'<div class="empty">Nenhum registro ainda.<br>Escolha um exercício e anote seu peso!</div>'}
+  else{$('app').innerHTML=`<p style="color:var(--sub)">Copie o texto abaixo e guarde para não perder seus dados. Para restaurar, cole e toque em Restaurar.</p>
+  <textarea id="bk" style="width:100%;height:180px;background:var(--card);color:var(--txt);border-radius:10px;border:1px solid var(--line);padding:10px">${esc(JSON.stringify(db))}</textarea>
+  <button class="btn" onclick="restaurar()">Restaurar backup</button>`}
+}
+function restaurar(){try{const d=JSON.parse($('bk').value);if(!d.logs)throw 0;if(confirm('Substituir dados atuais?')){db=d;db.custom=db.custom||{};save();alert('Restaurado!');home()}}catch(e){alert('Backup inválido')}}
+function buscar(){const q=$('q').value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(!q){home();$('q').focus();return}
+  const r=todos().filter(([g,e])=>(e+' '+g).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(q));
+  $('app').innerHTML=r.map(([g,e])=>itemEx(g,e,1)).join('')||'<div class="empty">Nada encontrado</div>'}
+function telaGrupo(g){
+  cab(g,1);$('hdr').innerHTML=`<input id="qg" placeholder="Filtrar..." oninput="filtraG(${esc(JSON.stringify(g))})">`;
+  filtraG(g)}
+function filtraG(g){const q=($('qg')||{}).value||'';
+  $('app').innerHTML=lista(g).filter(e=>e.toLowerCase().includes(q.toLowerCase())).map(e=>itemEx(g,e)).join('')+
+  `<button class="btn sec" onclick='novoEx(${JSON.stringify(g)})'>+ Adicionar exercício personalizado</button>`}
+function novoEx(g){const n=prompt('Nome do novo exercício:');if(n&&n.trim()){(db.custom[g]=db.custom[g]||[]).push(n.trim());save();filtraG(g)}}
+function telaEx(g,e){
+  cab(e,1);const L=db.logs[e]||[];const last=L[L.length-1]||{};
+  const hoje=new Date().toISOString().slice(0,10);
+  $('hdr').innerHTML=`<small style="color:var(--sub)">${esc(g)}</small>`;
+  let html=`<div class="grid">
+   <div><label>Peso (kg)</label><input id="p" type="number" inputmode="decimal" step="0.5" value="${last.peso??''}"></div>
+   <div><label>Séries</label><input id="s" type="number" inputmode="numeric" value="${last.series??''}"></div>
+   <div><label>Repetições</label><input id="r" type="number" inputmode="numeric" value="${last.reps??''}"></div></div>
+   <label>Data</label><input id="d" type="date" value="${hoje}">
+   <input id="o" placeholder="Observação (opcional)" style="margin-top:8px">
+   <button class="btn" onclick='registrar(${JSON.stringify(g)},${JSON.stringify(e)})'>Salvar registro</button>`;
+  if(L.length){const best=L.reduce((a,b)=>(+b.peso>+a.peso?b:a));
+    const vol=L.reduce((a,b)=>Math.max(a,b.peso*b.series*b.reps),0);
+    html+=`<div class="pr">🏆 Recorde: <b>${best.peso} kg</b> (${best.series}x${best.reps}) em ${fmt(best.data)}<br>
+    <small style="color:var(--sub)">Maior volume numa sessão: ${vol} kg · ${L.length} registros</small></div>
+    <h3 style="margin:16px 0 8px">Histórico</h3>`+
+    L.map((x,i)=>[x,i]).reverse().map(([x,i])=>`<div class="item"><div><b>${x.peso} kg</b> · ${x.series} séries × ${x.reps} reps
+    <small>${fmt(x.data)}${x.obs?' · '+esc(x.obs):''}</small></div>
+    <button class="del" onclick='apagar(${JSON.stringify(g)},${JSON.stringify(e)},${i})'>🗑</button></div>`).join('')}
+  if((db.custom[g]||[]).includes(e))html+=`<button class="btn sec" style="color:#ff5d5d" onclick='remEx(${JSON.stringify(g)},${JSON.stringify(e)})'>Remover exercício personalizado</button>`;
+  $('app').innerHTML=html}
+const fmt=d=>d?d.split('-').reverse().join('/'):'';
+function registrar(g,e){const p=parseFloat($('p').value),s=parseInt($('s').value),r=parseInt($('r').value);
+  if(isNaN(p)||!s||!r){alert('Preencha peso, séries e repetições');return}
+  (db.logs[e]=db.logs[e]||[]).push({peso:p,series:s,reps:r,data:$('d').value,obs:$('o').value.trim()});
+  db.logs[e].sort((a,b)=>a.data<b.data?-1:a.data>b.data?1:0);save();telaEx(g,e)}
+function apagar(g,e,i){if(confirm('Apagar este registro?')){db.logs[e].splice(i,1);save();telaEx(g,e)}}
+function remEx(g,e){if(confirm('Remover exercício?')){db.custom[g]=db.custom[g].filter(x=>x!==e);save();voltar()}}
+ir(home);
+</script></body></html>
