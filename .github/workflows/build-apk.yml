@@ -15,12 +15,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.7' }
       - run: gradle :app:assembleDebug --no-daemon
-      - run: cp app/build/outputs/apk/debug/app-debug.apk MeuTreino.apk
+      - run: cp app/build/outputs/apk/debug/app-debug.apk TrainingRoutine.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MeuTreino-apk, path: MeuTreino.apk }
+        with: { name: TrainingRoutine-apk, path: TrainingRoutine.apk }
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.0-build${{ github.run_number }}
-          name: Meu Treino ${{ github.run_number }}
-          files: MeuTreino.apk
+          tag_name: v3.0-build${{ github.run_number }}
+          name: TrainingRoutine ${{ github.run_number }}
+          files: TrainingRoutine.apk
           target_commitish: ${{ github.sha }}
