@@ -1,16 +1,18 @@
 package com.pizzaria.cardapio;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -26,204 +28,346 @@ import java.util.Map;
 
 public class MainActivity extends Activity {
 
-    static final int RED = Color.parseColor("#C62828");
-    static final int DARK = Color.parseColor("#3E2723");
-    static final int CREAM = Color.parseColor("#FFF8E1");
-    static final int GREEN = Color.parseColor("#2E7D32");
-    static final int GRAY = Color.parseColor("#6D4C41");
+    // Palette
+    static final int INK = Color.parseColor("#151312");
+    static final int CHARCOAL = Color.parseColor("#2A2624");
+    static final int IVORY = Color.parseColor("#FAF7F2");
+    static final int PAPER = Color.WHITE;
+    static final int GOLD = Color.parseColor("#B08D57");
+    static final int GOLD_SOFT = Color.parseColor("#E9DFCC");
+    static final int WINE = Color.parseColor("#7A1F2B");
+    static final int MUTED = Color.parseColor("#7B736B");
+    static final int LINE = Color.parseColor("#E7E1D8");
+
+    static final Typeface SERIF = Typeface.create("serif", Typeface.NORMAL);
+    static final Typeface SERIF_BOLD = Typeface.create("serif", Typeface.BOLD);
+    static final Typeface SERIF_ITALIC = Typeface.create("serif", Typeface.ITALIC);
+    static final Typeface SANS = Typeface.create("sans-serif", Typeface.NORMAL);
+    static final Typeface SANS_MEDIUM = Typeface.create("sans-serif-medium", Typeface.NORMAL);
 
     static class Item {
-        final String emoji, name, desc; final double price; final boolean pizza;
-        Item(String emoji, String name, String desc, double price, boolean pizza) {
-            this.emoji = emoji; this.name = name; this.desc = desc; this.price = price; this.pizza = pizza;
+        final String name, desc, tag; final double price; final boolean pizza;
+        Item(String name, String desc, double price, boolean pizza, String tag) {
+            this.name = name; this.desc = desc; this.price = price; this.pizza = pizza; this.tag = tag;
         }
     }
 
-    static final String[] SIZES = {"Broto (4 fatias)", "Média (6 fatias)", "Grande (8 fatias)"};
-    static final String[] SIZE_SHORT = {"Broto", "Média", "Grande"};
+    static class Category {
+        final String title, subtitle; final List<Item> items = new ArrayList<>();
+        Category(String title, String subtitle) { this.title = title; this.subtitle = subtitle; }
+        Category add(String n, String d, double p, String tag) { items.add(new Item(n, d, p, true, tag)); return this; }
+        Category drink(String n, String d, double p) { items.add(new Item(n, d, p, false, null)); return this; }
+    }
+
+    static final String[] SIZES = {"Broto", "Média", "Grande"};
+    static final String[] SIZE_INFO = {"4 fatias · 25 cm", "6 fatias · 30 cm", "8 fatias · 35 cm"};
     static final double[] SIZE_MULT = {0.7, 0.85, 1.0};
 
-    final Map<String, List<Item>> menu = new LinkedHashMap<>();
+    final List<Category> menu = new ArrayList<>();
     final Map<String, Integer> cart = new LinkedHashMap<>();
     final Map<String, Double> cartPrice = new LinkedHashMap<>();
     final NumberFormat brl = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
 
     LinearLayout list, tabs;
-    Button cartButton;
-    String current;
+    ScrollView scroll;
+    LinearLayout cartBar;
+    TextView cartCount, cartTotal;
+    int current = 0;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         buildMenu();
-        getWindow().setStatusBarColor(RED);
+        Window w = getWindow();
+        w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        w.setStatusBarColor(INK);
+        w.setNavigationBarColor(INK);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(CREAM);
+        root.setBackgroundColor(IVORY);
 
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.VERTICAL);
-        header.setBackgroundColor(RED);
-        header.setPadding(dp(16), dp(18), dp(16), dp(14));
-        TextView title = text("🍕 Pizzaria Bella Massa", 24, Color.WHITE, true);
-        TextView sub = text("Cardápio digital • Brasil, Itália e EUA no forno a lenha", 13, Color.parseColor("#FFE0B2"), false);
-        header.addView(title); header.addView(sub);
-        root.addView(header);
+        root.addView(header());
 
         HorizontalScrollView hs = new HorizontalScrollView(this);
         hs.setHorizontalScrollBarEnabled(false);
-        hs.setBackgroundColor(Color.WHITE);
+        hs.setBackgroundColor(INK);
         tabs = new LinearLayout(this);
-        tabs.setPadding(dp(8), dp(8), dp(8), dp(8));
+        tabs.setPadding(dp(12), 0, dp(12), 0);
         hs.addView(tabs);
         root.addView(hs);
 
-        ScrollView sv = new ScrollView(this);
+        scroll = new ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
         list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(12), dp(8), dp(12), dp(12));
-        sv.addView(list);
-        root.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1));
+        list.setPadding(dp(20), dp(8), dp(20), dp(24));
+        scroll.addView(list);
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        cartButton = new Button(this);
-        cartButton.setTextColor(Color.WHITE);
-        cartButton.setTextSize(16);
-        cartButton.setAllCaps(false);
-        cartButton.setBackground(round(GREEN, 0));
-        cartButton.setOnClickListener(v -> showCart());
-        root.addView(cartButton, new LinearLayout.LayoutParams(-1, dp(56)));
+        root.addView(cartBar());
 
         setContentView(root);
-        for (String c : menu.keySet()) addTab(c);
-        select(menu.keySet().iterator().next());
+        for (int i = 0; i < menu.size(); i++) addTab(i);
+        select(0);
         updateCart();
     }
 
+    View header() {
+        LinearLayout h = new LinearLayout(this);
+        h.setOrientation(LinearLayout.VERTICAL);
+        h.setGravity(Gravity.CENTER_HORIZONTAL);
+        h.setBackgroundColor(INK);
+        h.setPadding(dp(20), dp(28), dp(20), dp(18));
+
+        TextView over = text("PIZZERIA  ·  FORNO A LENHA", 11, GOLD, SANS_MEDIUM);
+        over.setLetterSpacing(0.3f);
+        h.addView(over);
+
+        TextView title = text("Bella Massa", 34, IVORY, SERIF);
+        title.setPadding(0, dp(6), 0, dp(4));
+        h.addView(title);
+
+        View rule = new View(this);
+        rule.setBackgroundColor(GOLD);
+        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(dp(48), dp(1));
+        rl.setMargins(0, dp(6), 0, dp(10));
+        h.addView(rule, rl);
+
+        TextView sub = text("Receitas clássicas do Brasil, da Itália e dos Estados Unidos", 13, Color.parseColor("#BDB3A6"), SERIF_ITALIC);
+        sub.setGravity(Gravity.CENTER);
+        h.addView(sub);
+        return h;
+    }
+
+    View cartBar() {
+        cartBar = new LinearLayout(this);
+        cartBar.setGravity(Gravity.CENTER_VERTICAL);
+        cartBar.setBackgroundColor(INK);
+        cartBar.setPadding(dp(20), dp(12), dp(20), dp(12));
+
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        cartCount = text("", 11, GOLD, SANS_MEDIUM);
+        cartCount.setLetterSpacing(0.2f);
+        cartTotal = text("", 20, IVORY, SERIF);
+        col.addView(cartCount);
+        col.addView(cartTotal);
+        cartBar.addView(col, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView btn = pill("VER PEDIDO", GOLD, INK, true);
+        btn.setOnClickListener(v -> showCart());
+        cartBar.addView(btn);
+        return cartBar;
+    }
+
     void buildMenu() {
-        List<Item> br = new ArrayList<>();
-        br.add(new Item("🧀", "Calabresa", "Calabresa fatiada, cebola, azeitonas e mussarela", 49.90, true));
-        br.add(new Item("🧀", "Mussarela", "Mussarela, rodelas de tomate, orégano e azeitonas", 44.90, true));
-        br.add(new Item("🍗", "Frango com Catupiry", "Frango desfiado temperado coberto com Catupiry original", 54.90, true));
-        br.add(new Item("🥚", "Portuguesa", "Presunto, ovos, cebola, ervilha, palmito, azeitonas e mussarela", 54.90, true));
-        br.add(new Item("🍖", "Moda da Casa", "Lombo canadense, bacon, champignon, milho e catupiry", 59.90, true));
-        br.add(new Item("🌽", "Milho com Bacon", "Milho verde, bacon crocante e mussarela", 49.90, true));
-        br.add(new Item("🥩", "Carne Seca com Catupiry", "Carne seca desfiada, cebola roxa e Catupiry", 62.90, true));
-        br.add(new Item("🧅", "Baiana", "Calabresa moída apimentada, ovos, cebola e pimenta", 52.90, true));
-        br.add(new Item("🧀", "Quatro Queijos", "Mussarela, provolone, parmesão e Catupiry", 56.90, true));
-        br.add(new Item("🥓", "Atum", "Atum sólido, cebola, azeitonas e mussarela", 52.90, true));
-        menu.put("🇧🇷 Brasileiras", br);
+        menu.add(new Category("Brasileiras", "Os sabores que conquistaram as pizzarias de São Paulo")
+            .add("Calabresa", "Calabresa artesanal fatiada, cebola roxa, azeitonas pretas e mussarela", 49.90, "Clássica")
+            .add("Mussarela", "Mussarela de primeira, rodelas de tomate, orégano e azeitonas", 44.90, null)
+            .add("Frango com Catupiry", "Frango desfiado e temperado, coberto com Catupiry original", 54.90, "Mais pedida")
+            .add("Portuguesa", "Presunto, ovos, cebola, ervilha, palmito, azeitonas e mussarela", 54.90, "Clássica")
+            .add("Carne Seca com Catupiry", "Carne seca desfiada na manteiga de garrafa, cebola roxa e Catupiry", 62.90, null)
+            .add("Moda da Casa", "Lombo canadense, bacon, champignon, milho e Catupiry", 59.90, "Da casa")
+            .add("Quatro Queijos", "Mussarela, provolone, parmesão e Catupiry", 56.90, null)
+            .add("Milho com Bacon", "Milho verde, bacon crocante e mussarela", 49.90, null)
+            .add("Baiana", "Calabresa moída apimentada, ovos, cebola e pimenta dedo-de-moça", 52.90, "Picante")
+            .add("Atum", "Atum sólido, cebola, azeitonas e mussarela", 52.90, null));
 
-        List<Item> it = new ArrayList<>();
-        it.add(new Item("🍅", "Margherita", "Molho San Marzano, mussarela de búfala, manjericão fresco e azeite", 52.90, true));
-        it.add(new Item("🍅", "Marinara", "Molho de tomate, alho, orégano e azeite extravirgem", 42.90, true));
-        it.add(new Item("🥓", "Diavola", "Salame picante, pimenta calabresa e mussarela", 56.90, true));
-        it.add(new Item("🍄", "Quattro Stagioni", "Presunto cotto, alcachofra, cogumelos e azeitonas pretas", 62.90, true));
-        it.add(new Item("🥬", "Parma e Rúcula", "Presunto de Parma, rúcula, tomate-cereja e lascas de grana padano", 68.90, true));
-        it.add(new Item("🧀", "Quattro Formaggi", "Mussarela, gorgonzola, fontina e parmigiano reggiano", 59.90, true));
-        it.add(new Item("🍆", "Capricciosa", "Presunto, cogumelos, alcachofra, ovo e azeitonas", 61.90, true));
-        it.add(new Item("🌿", "Pesto Genovese", "Pesto de manjericão, mussarela, tomate seco e pinoli", 58.90, true));
-        menu.put("🇮🇹 Italianas", it);
+        menu.add(new Category("Italianas", "Massa de fermentação natural de 48 horas, ao estilo napolitano")
+            .add("Margherita", "Molho de tomate San Marzano, mussarela de búfala, manjericão e azeite extravirgem", 52.90, "Clássica")
+            .add("Marinara", "Tomate San Marzano, alho, orégano siciliano e azeite extravirgem", 42.90, "Vegana")
+            .add("Diavola", "Salame picante, pimenta calabresa e fior di latte", 56.90, "Picante")
+            .add("Quattro Formaggi", "Fior di latte, gorgonzola, fontina e parmigiano reggiano", 59.90, null)
+            .add("Parma e Rúcula", "Prosciutto di Parma, rúcula, tomate-cereja e lascas de grana padano", 68.90, "Especial")
+            .add("Quattro Stagioni", "Presunto cotto, alcachofra, cogumelos e azeitonas pretas", 62.90, null)
+            .add("Capricciosa", "Presunto cotto, cogumelos, alcachofra, ovo e azeitonas", 61.90, null)
+            .add("Pesto Genovese", "Pesto de manjericão, fior di latte, tomate seco e pinoli", 58.90, "Vegetariana"));
 
-        List<Item> us = new ArrayList<>();
-        us.add(new Item("🍕", "Pepperoni", "Muito pepperoni crocante sobre mussarela e molho de tomate", 56.90, true));
-        us.add(new Item("🍍", "Hawaiian", "Presunto, abacaxi caramelizado e mussarela", 54.90, true));
-        us.add(new Item("🍖", "BBQ Chicken", "Frango, molho barbecue, cebola roxa e coentro", 58.90, true));
-        us.add(new Item("🥩", "Meat Lovers", "Pepperoni, bacon, linguiça, presunto e carne moída", 66.90, true));
-        us.add(new Item("🍔", "Cheeseburger", "Carne moída, cheddar, picles, cebola e molho especial", 62.90, true));
-        us.add(new Item("🌶️", "Buffalo Chicken", "Frango ao molho buffalo, mussarela e molho ranch", 59.90, true));
-        us.add(new Item("🫑", "Supreme", "Pepperoni, linguiça, pimentões, cebola, cogumelos e azeitonas", 64.90, true));
-        menu.put("🇺🇸 Americanas", us);
+        menu.add(new Category("Americanas", "Inspiradas nas pizzarias de Nova York e Chicago")
+            .add("Pepperoni", "Pepperoni crocante em abundância sobre mussarela e molho de tomate", 56.90, "Mais pedida")
+            .add("Meat Lovers", "Pepperoni, bacon, linguiça, presunto e carne moída", 66.90, null)
+            .add("BBQ Chicken", "Frango, molho barbecue defumado, cebola roxa e coentro", 58.90, null)
+            .add("Supreme", "Pepperoni, linguiça, pimentões, cebola, cogumelos e azeitonas", 64.90, null)
+            .add("Cheeseburger", "Carne moída, cheddar, picles, cebola e molho especial", 62.90, null)
+            .add("Buffalo Chicken", "Frango ao molho buffalo, mussarela e molho ranch", 59.90, "Picante")
+            .add("Hawaiian", "Presunto, abacaxi caramelizado e mussarela", 54.90, null));
 
-        List<Item> sw = new ArrayList<>();
-        sw.add(new Item("🍫", "Brigadeiro", "Chocolate ao leite com granulado", 46.90, true));
-        sw.add(new Item("🍌", "Romeu e Julieta", "Goiabada cascão derretida com queijo minas", 44.90, true));
-        sw.add(new Item("🍌", "Banana com Canela", "Banana, açúcar, canela e leite condensado", 42.90, true));
-        sw.add(new Item("🍓", "Chocolate com Morango", "Chocolate meio amargo e morangos frescos", 52.90, true));
-        sw.add(new Item("🥜", "Nutella com Morango", "Creme de avelã e morangos frescos", 56.90, true));
-        sw.add(new Item("🍪", "Prestígio", "Chocolate ao leite com coco ralado", 46.90, true));
-        menu.put("🍫 Doces", sw);
+        menu.add(new Category("Doces", "Para encerrar com delicadeza")
+            .add("Brigadeiro", "Chocolate belga ao leite com granulado", 46.90, "Mais pedida")
+            .add("Romeu e Julieta", "Goiabada cascão derretida com queijo minas", 44.90, "Clássica")
+            .add("Chocolate com Morango", "Chocolate meio amargo e morangos frescos", 52.90, null)
+            .add("Avelã com Morango", "Creme de avelã e morangos frescos", 56.90, null)
+            .add("Banana com Canela", "Banana, açúcar mascavo, canela e leite condensado", 42.90, null)
+            .add("Prestígio", "Chocolate ao leite com coco fresco ralado", 46.90, null));
 
-        List<Item> dr = new ArrayList<>();
-        dr.add(new Item("🥤", "Guaraná Antarctica 2L", "Refrigerante gelado", 13.90, false));
-        dr.add(new Item("🥤", "Coca-Cola 2L", "Refrigerante gelado", 14.90, false));
-        dr.add(new Item("🥫", "Refrigerante Lata 350ml", "Coca-Cola, Guaraná, Fanta ou Sprite", 6.90, false));
-        dr.add(new Item("🍊", "Suco Natural 500ml", "Laranja, limão, maracujá ou abacaxi com hortelã", 11.90, false));
-        dr.add(new Item("💧", "Água Mineral 500ml", "Com ou sem gás", 4.90, false));
-        dr.add(new Item("🍺", "Cerveja Long Neck", "Puro malte gelada (venda para maiores de 18 anos)", 10.90, false));
-        dr.add(new Item("🍷", "Taça de Vinho Tinto", "Chianti italiano", 24.90, false));
-        menu.put("🥤 Bebidas", dr);
+        menu.add(new Category("Bebidas", "Seleção de refrigerantes, sucos e vinhos")
+            .drink("Taça de Vinho Tinto", "Chianti Classico DOCG, Toscana", 24.90)
+            .drink("Garrafa de Vinho Tinto", "Chianti Classico DOCG, 750 ml", 129.00)
+            .drink("Cerveja Long Neck", "Puro malte, 355 ml · venda para maiores de 18 anos", 10.90)
+            .drink("Suco Natural", "Laranja, limão, maracujá ou abacaxi com hortelã · 500 ml", 11.90)
+            .drink("Guaraná Antarctica", "Garrafa 2 litros", 13.90)
+            .drink("Coca-Cola", "Garrafa 2 litros", 14.90)
+            .drink("Refrigerante em Lata", "Coca-Cola, Guaraná, Fanta ou Sprite · 350 ml", 6.90)
+            .drink("Água Mineral", "Com ou sem gás · 500 ml", 4.90));
     }
 
-    void addTab(String cat) {
-        TextView t = text(cat, 14, DARK, true);
-        t.setPadding(dp(14), dp(8), dp(14), dp(8));
-        t.setTag(cat);
-        t.setOnClickListener(v -> select(cat));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-        lp.setMargins(dp(4), 0, dp(4), 0);
-        tabs.addView(t, lp);
+    void addTab(int i) {
+        LinearLayout tab = new LinearLayout(this);
+        tab.setOrientation(LinearLayout.VERTICAL);
+        tab.setGravity(Gravity.CENTER_HORIZONTAL);
+        tab.setPadding(dp(14), dp(12), dp(14), 0);
+        TextView t = text(menu.get(i).title.toUpperCase(new Locale("pt", "BR")), 12, MUTED, SANS_MEDIUM);
+        t.setLetterSpacing(0.18f);
+        tab.addView(t);
+        View bar = new View(this);
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(-1, dp(2));
+        bl.setMargins(0, dp(10), 0, 0);
+        tab.addView(bar, bl);
+        tab.setOnClickListener(v -> select(i));
+        tabs.addView(tab);
     }
 
-    void select(String cat) {
-        current = cat;
+    void select(int idx) {
+        current = idx;
         for (int i = 0; i < tabs.getChildCount(); i++) {
-            TextView t = (TextView) tabs.getChildAt(i);
-            boolean on = cat.equals(t.getTag());
-            t.setBackground(round(on ? RED : Color.parseColor("#FBE9E7"), 20));
-            t.setTextColor(on ? Color.WHITE : DARK);
+            LinearLayout tab = (LinearLayout) tabs.getChildAt(i);
+            boolean on = i == idx;
+            ((TextView) tab.getChildAt(0)).setTextColor(on ? IVORY : MUTED);
+            tab.getChildAt(1).setBackgroundColor(on ? GOLD : Color.TRANSPARENT);
         }
+        Category c = menu.get(idx);
         list.removeAllViews();
-        for (Item item : menu.get(cat)) list.addView(card(item));
+
+        TextView h = text(c.title, 28, INK, SERIF);
+        h.setPadding(0, dp(20), 0, 0);
+        list.addView(h);
+        TextView s = text(c.subtitle, 14, MUTED, SERIF_ITALIC);
+        s.setPadding(0, dp(4), 0, dp(4));
+        list.addView(s);
+        if (c.items.get(0).pizza) {
+            TextView note = text("Preços referentes à pizza grande. Tamanhos broto e média disponíveis.", 12, MUTED, SANS);
+            note.setPadding(0, dp(2), 0, dp(8));
+            list.addView(note);
+        }
+        for (int i = 0; i < c.items.size(); i++) list.addView(row(c.items.get(i), i < c.items.size() - 1));
+        scroll.scrollTo(0, 0);
     }
 
-    View card(Item item) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.HORIZONTAL);
-        card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setPadding(dp(12), dp(12), dp(12), dp(12));
-        card.setBackground(round(Color.WHITE, 14));
-        card.setElevation(dp(2));
-        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
-        clp.setMargins(0, dp(6), 0, dp(6));
-        card.setLayoutParams(clp);
+    View row(Item item, boolean divider) {
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.setPadding(0, dp(18), 0, 0);
 
-        TextView emo = text(item.emoji, 34, DARK, false);
-        emo.setGravity(Gravity.CENTER);
-        card.addView(emo, new LinearLayout.LayoutParams(dp(56), -2));
+        LinearLayout top = new LinearLayout(this);
+        top.setGravity(Gravity.BOTTOM);
+        TextView name = text(item.name, 19, INK, SERIF);
+        top.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView price = text(brl.format(item.price), 17, WINE, SERIF);
+        price.setPadding(dp(12), 0, 0, 0);
+        top.addView(price);
+        wrap.addView(top);
 
-        LinearLayout info = new LinearLayout(this);
-        info.setOrientation(LinearLayout.VERTICAL);
-        info.setPadding(dp(8), 0, dp(8), 0);
-        info.addView(text(item.name, 17, DARK, true));
-        TextView d = text(item.desc, 13, GRAY, false);
-        d.setPadding(0, dp(2), 0, dp(4));
-        info.addView(d);
-        String price = item.pizza ? "a partir de " + brl.format(item.price * SIZE_MULT[0]) : brl.format(item.price);
-        info.addView(text(price, 15, RED, true));
-        card.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
+        if (item.tag != null) {
+            TextView tag = text(item.tag.toUpperCase(new Locale("pt", "BR")), 9, GOLD, SANS_MEDIUM);
+            tag.setLetterSpacing(0.2f);
+            tag.setPadding(dp(8), dp(3), dp(8), dp(3));
+            GradientDrawable g = new GradientDrawable();
+            g.setStroke(dp(1), GOLD);
+            g.setCornerRadius(dp(2));
+            tag.setBackground(g);
+            LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-2, -2);
+            tl.setMargins(0, dp(6), 0, 0);
+            wrap.addView(tag, tl);
+        }
 
-        Button add = new Button(this);
-        add.setText("+");
-        add.setTextSize(22);
-        add.setTextColor(Color.WHITE);
-        add.setBackground(round(RED, 24));
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setGravity(Gravity.CENTER_VERTICAL);
+        bottom.setPadding(0, dp(6), 0, dp(18));
+        TextView d = text(item.desc, 14, MUTED, SANS);
+        d.setLineSpacing(dp(3), 1f);
+        bottom.addView(d, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView add = pill("ADICIONAR", Color.TRANSPARENT, INK, false);
+        LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(-2, -2);
+        al.setMargins(dp(16), 0, 0, 0);
+        bottom.addView(add, al);
         add.setOnClickListener(v -> onAdd(item));
-        card.addView(add, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        card.setOnClickListener(v -> onAdd(item));
-        return card;
+        wrap.addView(bottom);
+
+        if (divider) {
+            View line = new View(this);
+            line.setBackgroundColor(LINE);
+            wrap.addView(line, new LinearLayout.LayoutParams(-1, dp(1)));
+        }
+        return wrap;
+    }
+
+    // ---------- Dialogs ----------
+
+    Dialog sheet(View content) {
+        Dialog d = new Dialog(this);
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        d.setContentView(content);
+        Window w = d.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            w.setLayout((int) (getResources().getDisplayMetrics().widthPixels * 0.9), -2);
+        }
+        return d;
+    }
+
+    LinearLayout panel() {
+        LinearLayout p = new LinearLayout(this);
+        p.setOrientation(LinearLayout.VERTICAL);
+        p.setPadding(dp(24), dp(24), dp(24), dp(20));
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(IVORY);
+        g.setCornerRadius(dp(6));
+        p.setBackground(g);
+        return p;
     }
 
     void onAdd(Item item) {
         if (!item.pizza) { addToCart(item.name, item.price); return; }
-        String[] opts = new String[SIZES.length];
-        for (int i = 0; i < SIZES.length; i++) opts[i] = SIZES[i] + " — " + brl.format(item.price * SIZE_MULT[i]);
-        new AlertDialog.Builder(this)
-                .setTitle(item.emoji + " " + item.name + "\nEscolha o tamanho")
-                .setItems(opts, (dlg, which) ->
-                        addToCart(item.name + " (" + SIZE_SHORT[which] + ")", round2(item.price * SIZE_MULT[which])))
-                .setNegativeButton("Cancelar", null)
-                .show();
+        LinearLayout p = panel();
+        TextView over = text("ESCOLHA O TAMANHO", 11, GOLD, SANS_MEDIUM);
+        over.setLetterSpacing(0.25f);
+        p.addView(over);
+        TextView t = text(item.name, 24, INK, SERIF);
+        t.setPadding(0, dp(4), 0, dp(12));
+        p.addView(t);
+        Dialog d = sheet(p);
+        for (int i = 0; i < SIZES.length; i++) {
+            final int s = i;
+            LinearLayout opt = new LinearLayout(this);
+            opt.setGravity(Gravity.CENTER_VERTICAL);
+            opt.setPadding(dp(16), dp(14), dp(16), dp(14));
+            GradientDrawable g = new GradientDrawable();
+            g.setColor(PAPER);
+            g.setStroke(dp(1), LINE);
+            g.setCornerRadius(dp(4));
+            opt.setBackground(g);
+            LinearLayout col = new LinearLayout(this);
+            col.setOrientation(LinearLayout.VERTICAL);
+            col.addView(text(SIZES[i], 17, INK, SERIF));
+            col.addView(text(SIZE_INFO[i], 12, MUTED, SANS));
+            opt.addView(col, new LinearLayout.LayoutParams(0, -2, 1));
+            opt.addView(text(brl.format(round2(item.price * SIZE_MULT[i])), 16, WINE, SERIF));
+            LinearLayout.LayoutParams ol = new LinearLayout.LayoutParams(-1, -2);
+            ol.setMargins(0, 0, 0, dp(8));
+            p.addView(opt, ol);
+            opt.setOnClickListener(v -> {
+                addToCart(item.name + " · " + SIZES[s], round2(item.price * SIZE_MULT[s]));
+                d.dismiss();
+            });
+        }
+        TextView cancel = text("CANCELAR", 12, MUTED, SANS_MEDIUM);
+        cancel.setLetterSpacing(0.2f);
+        cancel.setGravity(Gravity.CENTER);
+        cancel.setPadding(0, dp(12), 0, dp(4));
+        cancel.setOnClickListener(v -> d.dismiss());
+        p.addView(cancel);
+        d.show();
     }
 
     static double round2(double v) { return Math.round(v * 100) / 100.0; }
@@ -245,102 +389,167 @@ public class MainActivity extends Activity {
 
     void updateCart() {
         int c = count();
-        cartButton.setText(c == 0 ? "🛒 Seu pedido está vazio" : "🛒 Ver pedido (" + c + " itens) • " + brl.format(total()));
+        cartBar.setVisibility(c == 0 ? View.GONE : View.VISIBLE);
+        cartCount.setText((c == 1 ? "1 ITEM" : c + " ITENS") + " NO PEDIDO");
+        cartTotal.setText(brl.format(total()));
     }
 
     void showCart() {
-        if (cart.isEmpty()) { Toast.makeText(this, "Adicione itens do cardápio", Toast.LENGTH_SHORT).show(); return; }
+        if (cart.isEmpty()) return;
+        LinearLayout p = panel();
+        TextView over = text("SEU PEDIDO", 11, GOLD, SANS_MEDIUM);
+        over.setLetterSpacing(0.25f);
+        p.addView(over);
+        TextView title = text("Resumo", 24, INK, SERIF);
+        title.setPadding(0, dp(4), 0, dp(8));
+        p.addView(title);
+
         ScrollView sv = new ScrollView(this);
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(16), dp(8), dp(16), dp(8));
         sv.addView(box);
-        final AlertDialog[] dlg = new AlertDialog[1];
+        p.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        TextView tot = text("", 22, WINE, SERIF);
+        LinearLayout totRow = new LinearLayout(this);
+        totRow.setGravity(Gravity.CENTER_VERTICAL);
+        totRow.setPadding(0, dp(14), 0, dp(16));
+        totRow.addView(text("Total", 18, INK, SERIF), new LinearLayout.LayoutParams(0, -2, 1));
+        totRow.addView(tot);
+        p.addView(totRow);
+
+        Dialog d = sheet(p);
         Runnable[] render = new Runnable[1];
         render[0] = () -> {
             box.removeAllViews();
             for (String key : new ArrayList<>(cart.keySet())) {
                 LinearLayout row = new LinearLayout(this);
                 row.setGravity(Gravity.CENTER_VERTICAL);
-                row.setPadding(0, dp(6), 0, dp(6));
+                row.setPadding(0, dp(12), 0, dp(12));
                 LinearLayout col = new LinearLayout(this);
                 col.setOrientation(LinearLayout.VERTICAL);
-                col.addView(text(key, 15, DARK, true));
-                col.addView(text(cart.get(key) + " x " + brl.format(cartPrice.get(key)), 13, GRAY, false));
+                col.addView(text(key, 16, INK, SERIF));
+                col.addView(text(brl.format(cart.get(key) * cartPrice.get(key)), 13, MUTED, SANS));
                 row.addView(col, new LinearLayout.LayoutParams(0, -2, 1));
-                row.addView(small("−", v -> {
+                row.addView(stepper("−", v -> {
                     int q = cart.get(key) - 1;
                     if (q <= 0) { cart.remove(key); cartPrice.remove(key); } else cart.put(key, q);
                     updateCart();
-                    if (cart.isEmpty()) dlg[0].dismiss(); else render[0].run();
+                    if (cart.isEmpty()) d.dismiss(); else render[0].run();
                 }));
-                row.addView(small("+", v -> { cart.put(key, cart.get(key) + 1); updateCart(); render[0].run(); }));
+                TextView qty = text(String.valueOf(cart.get(key)), 16, INK, SERIF);
+                qty.setGravity(Gravity.CENTER);
+                row.addView(qty, new LinearLayout.LayoutParams(dp(32), -2));
+                row.addView(stepper("+", v -> { cart.put(key, cart.get(key) + 1); updateCart(); render[0].run(); }));
                 box.addView(row);
+                View line = new View(this);
+                line.setBackgroundColor(LINE);
+                box.addView(line, new LinearLayout.LayoutParams(-1, dp(1)));
             }
-            TextView tot = text("Total: " + brl.format(total()), 18, RED, true);
-            tot.setPadding(0, dp(12), 0, 0);
-            box.addView(tot);
-            if (dlg[0] != null) dlg[0].setTitle("🛒 Seu pedido (" + count() + " itens)");
+            tot.setText(brl.format(total()));
+            // keep list compact
+            int max = (int) (getResources().getDisplayMetrics().heightPixels * 0.45);
+            box.measure(View.MeasureSpec.makeMeasureSpec(dp(300), View.MeasureSpec.AT_MOST), View.MeasureSpec.UNSPECIFIED);
+            sv.getLayoutParams().height = Math.min(box.getMeasuredHeight(), max);
+            sv.requestLayout();
         };
         render[0].run();
-        dlg[0] = new AlertDialog.Builder(this)
-                .setTitle("🛒 Seu pedido (" + count() + " itens)")
-                .setView(sv)
-                .setPositiveButton("Finalizar pedido", (d, w) -> finish_order())
-                .setNeutralButton("Limpar", (d, w) -> { cart.clear(); cartPrice.clear(); updateCart(); })
-                .setNegativeButton("Continuar", null)
-                .create();
-        dlg[0].show();
+
+        TextView confirm = pill("FINALIZAR PEDIDO", INK, IVORY, true);
+        confirm.setGravity(Gravity.CENTER);
+        confirm.setOnClickListener(v -> { d.dismiss(); finishOrder(); });
+        p.addView(confirm, new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout links = new LinearLayout(this);
+        links.setPadding(0, dp(8), 0, 0);
+        TextView clear = text("ESVAZIAR", 12, MUTED, SANS_MEDIUM);
+        TextView back = text("CONTINUAR", 12, MUTED, SANS_MEDIUM);
+        for (TextView l : new TextView[]{clear, back}) {
+            l.setLetterSpacing(0.2f);
+            l.setGravity(Gravity.CENTER);
+            l.setPadding(0, dp(12), 0, dp(4));
+            links.addView(l, new LinearLayout.LayoutParams(0, -2, 1));
+        }
+        clear.setOnClickListener(v -> { cart.clear(); cartPrice.clear(); updateCart(); d.dismiss(); });
+        back.setOnClickListener(v -> d.dismiss());
+        p.addView(links);
+        d.show();
     }
 
-    void finish_order() {
-        StringBuilder sb = new StringBuilder("🍕 Pedido - Pizzaria Bella Massa\n\n");
+    void finishOrder() {
+        StringBuilder sb = new StringBuilder("Pedido · Bella Massa Pizzeria\n\n");
         for (Map.Entry<String, Integer> e : cart.entrySet())
             sb.append(e.getValue()).append("x ").append(e.getKey()).append(" — ")
               .append(brl.format(e.getValue() * cartPrice.get(e.getKey()))).append("\n");
         sb.append("\nTotal: ").append(brl.format(total()));
         final String msg = sb.toString();
-        new AlertDialog.Builder(this)
-                .setTitle("✅ Pedido confirmado!")
-                .setMessage(msg + "\n\nDeseja enviar o pedido (WhatsApp, SMS etc.)?")
-                .setPositiveButton("Enviar", (d, w) -> {
-                    Intent i = new Intent(Intent.ACTION_SEND);
-                    i.setType("text/plain");
-                    i.putExtra(Intent.EXTRA_TEXT, msg);
-                    try { startActivity(Intent.createChooser(i, "Enviar pedido")); } catch (Exception ignored) { }
-                    cart.clear(); cartPrice.clear(); updateCart();
-                })
-                .setNegativeButton("Fechar", (d, w) -> { cart.clear(); cartPrice.clear(); updateCart(); })
-                .show();
+
+        LinearLayout p = panel();
+        p.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView over = text("PEDIDO CONFIRMADO", 11, GOLD, SANS_MEDIUM);
+        over.setLetterSpacing(0.25f);
+        p.addView(over);
+        TextView t = text("Grazie mille", 26, INK, SERIF_ITALIC);
+        t.setPadding(0, dp(6), 0, dp(6));
+        p.addView(t);
+        TextView body = text("Seu pedido de " + brl.format(total()) + " foi registrado. Envie-o para a pizzaria pelo aplicativo de sua preferência.", 14, MUTED, SANS);
+        body.setGravity(Gravity.CENTER);
+        body.setPadding(0, 0, 0, dp(18));
+        p.addView(body);
+        Dialog d = sheet(p);
+        TextView send = pill("ENVIAR PEDIDO", INK, IVORY, true);
+        send.setGravity(Gravity.CENTER);
+        send.setOnClickListener(v -> {
+            Intent i = new Intent(Intent.ACTION_SEND);
+            i.setType("text/plain");
+            i.putExtra(Intent.EXTRA_TEXT, msg);
+            try { startActivity(Intent.createChooser(i, "Enviar pedido")); } catch (Exception ignored) { }
+            d.dismiss();
+        });
+        p.addView(send, new LinearLayout.LayoutParams(-1, -2));
+        TextView close = text("FECHAR", 12, MUTED, SANS_MEDIUM);
+        close.setLetterSpacing(0.2f);
+        close.setPadding(0, dp(14), 0, dp(4));
+        close.setOnClickListener(v -> d.dismiss());
+        p.addView(close);
+        d.setOnDismissListener(x -> { cart.clear(); cartPrice.clear(); updateCart(); });
+        d.show();
     }
 
-    Button small(String label, View.OnClickListener l) {
-        Button b = new Button(this);
-        b.setText(label);
-        b.setTextSize(18);
-        b.setTextColor(Color.WHITE);
-        b.setBackground(round(RED, 18));
-        b.setOnClickListener(l);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(40), dp(40));
-        lp.setMargins(dp(4), 0, 0, 0);
-        b.setLayoutParams(lp);
-        return b;
+    // ---------- Helpers ----------
+
+    TextView pill(String label, int bg, int fg, boolean filled) {
+        TextView t = text(label, 11, fg, SANS_MEDIUM);
+        t.setLetterSpacing(0.2f);
+        t.setPadding(dp(16), dp(10), dp(16), dp(10));
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(bg);
+        if (!filled) g.setStroke(dp(1), INK);
+        g.setCornerRadius(dp(2));
+        t.setBackground(g);
+        if (filled) t.setPadding(dp(20), dp(14), dp(20), dp(14));
+        return t;
     }
 
-    TextView text(String s, int sp, int color, boolean bold) {
+    View stepper(String label, View.OnClickListener l) {
+        TextView t = text(label, 16, INK, SANS);
+        t.setGravity(Gravity.CENTER);
+        GradientDrawable g = new GradientDrawable();
+        g.setShape(GradientDrawable.OVAL);
+        g.setStroke(dp(1), GOLD);
+        t.setBackground(g);
+        t.setOnClickListener(l);
+        t.setLayoutParams(new LinearLayout.LayoutParams(dp(32), dp(32)));
+        return t;
+    }
+
+    TextView text(String s, int sp, int color, Typeface tf) {
         TextView t = new TextView(this);
         t.setText(s);
         t.setTextSize(sp);
         t.setTextColor(color);
-        if (bold) t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        t.setTypeface(tf);
         return t;
-    }
-
-    GradientDrawable round(int color, int radiusDp) {
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(color);
-        g.setCornerRadius(dp(radiusDp));
-        return g;
     }
 
     int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }

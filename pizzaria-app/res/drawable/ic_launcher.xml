@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item><shape android:shape="oval"><solid android:color="#C62828"/></shape></item>
-    <item android:top="12dp" android:bottom="12dp" android:left="12dp" android:right="12dp">
-        <shape android:shape="oval"><solid android:color="#FFC107"/><stroke android:width="4dp" android:color="#E65100"/></shape></item>
-    <item android:top="22dp" android:left="20dp" android:right="40dp" android:bottom="38dp"><shape android:shape="oval"><solid android:color="#B71C1C"/></shape></item>
-    <item android:top="36dp" android:left="38dp" android:right="22dp" android:bottom="24dp"><shape android:shape="oval"><solid android:color="#B71C1C"/></shape></item>
-    <item android:top="22dp" android:left="40dp" android:right="24dp" android:bottom="42dp"><shape android:shape="oval"><solid android:color="#2E7D32"/></shape></item>
+    <item><shape android:shape="oval"><solid android:color="#151312"/></shape></item>
+    <item android:top="6dp" android:bottom="6dp" android:left="6dp" android:right="6dp">
+        <shape android:shape="oval"><stroke android:width="2dp" android:color="#B08D57"/></shape></item>
+    <item android:top="18dp" android:bottom="18dp" android:left="18dp" android:right="18dp">
+        <shape android:shape="oval"><solid android:color="#7A1F2B"/><stroke android:width="3dp" android:color="#E9DFCC"/></shape></item>
     <item android:width="64dp" android:height="64dp"><shape><solid android:color="#00000000"/><size android:width="64dp" android:height="64dp"/></shape></item>
 </layer-list>

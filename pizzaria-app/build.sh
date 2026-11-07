@@ -12,8 +12,8 @@ javac --release 8 -cp "$JAR" -d build/classes $(find src -name '*.java')
 "$BT/d8" --min-api 21 --lib "$JAR" --output build/dex $(find build/classes -name '*.class')
 (cd build/dex && zip -q ../unsigned.apk classes.dex)
 "$BT/zipalign" -f -p 4 build/unsigned.apk build/aligned.apk
-[ -f build/key.jks ] || keytool -genkeypair -keystore build/key.jks -alias app -keyalg RSA -keysize 2048 \
-  -validity 10000 -storepass android -keypass android -dname "CN=Pizzaria Bella Massa, C=BR"
-"$BT/apksigner" sign --ks build/key.jks --ks-pass pass:android --key-pass pass:android \
+KS=build/key.jks
+keytool -genkeypair -keystore "$KS" -alias app -keyalg RSA -keysize 2048 -validity 10000 -storepass bellamassa -keypass bellamassa -dname "CN=Bella Massa, C=BR"
+"$BT/apksigner" sign --ks "$KS" --ks-pass pass:bellamassa --key-pass pass:bellamassa \
   --out build/PizzariaBellaMassa.apk build/aligned.apk
 "$BT/apksigner" verify --verbose build/PizzariaBellaMassa.apk
