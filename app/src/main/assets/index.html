@@ -37,6 +37,7 @@ main{padding:6px 18px 110px}
 .groups{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .gcard{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:20px;padding:16px;min-height:120px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;transition:transform .2s}
 .gcard:active,.item:active{transform:scale(.97)}
+.gcard:last-child:nth-child(odd){grid-column:1/-1;justify-self:center;width:calc(50% - 6px)}
 .gcard .gi{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:#c9973f1a;color:var(--g1);border:1px solid #c9973f33}
 .gcard h3{margin:14px 0 2px;font-size:15px;font-weight:600}.gcard small{color:var(--sub);font-size:12px}
 .gcard .bar{height:3px;border-radius:3px;background:#ffffff10;margin-top:10px;overflow:hidden}.gcard .bar i{display:block;height:100%;background:var(--gold);border-radius:3px;transition:width 1s}
