@@ -1,0 +1,19 @@
+{
+  "name": "chatbot-clinica-odontologica",
+  "version": "1.0.0",
+  "description": "Chatbot de atendimento para clínica odontológica que roda direto no WhatsApp (via WhatsApp Web), sem API paga.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "simular": "node src/simulador.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.7"
+  },
+  "license": "MIT"
+}
